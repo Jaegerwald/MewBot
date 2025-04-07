@@ -12,7 +12,11 @@ for i in range(0, len(ADMINS)):
     ADMINS[i] = int(ADMINS[i])
 
 responses = []
+blocked = []
 ping_sillybot = False
+
+with open("block.json", "r") as block_file:
+    blocked = json.loads(block_file.read())
 
 # ik this code isnt commented but this basically tokenizes the responses :3
 def load_responses():
@@ -31,7 +35,6 @@ def load_responses():
             util.list_or_str_to_list(util.empty_list_fallback(response, "modifiers"))
         ]
         responses.append(response)
-
 class Client(discord.Client):
     async def on_ready(self):
         print("Logged on as", self.user)
@@ -49,6 +52,32 @@ class Client(discord.Client):
             responses = backup
             await message.edit(content="<:mew_cross:1353825036460363818> **Reload Failed**\n```\n" + traceback.format_exc() + "\n```")
 
+        
+    async def toggle_blocked_status(self, ctx, user):
+        global blocked
+        
+        with open("block.json", "r+") as block_file:
+            blocked = json.loads(block_file.read())
+            if user in blocked:
+                blocked.remove(user)
+                success_message = await ctx.send(content="<:mew_check:1353825037966377001> **Responses turned on for <@" + str(user) + ">**")
+                block_file.seek(0)
+                block_file.truncate()
+                block_file.write(json.dumps(blocked))
+                await asyncio.sleep(5)
+                await success_message.delete()
+            else:
+                blocked.append(user)
+                success_message = await ctx.send(content="<:mew_cross:1353825036460363818> **Responses turned off for <@" + str(user) + ">**")
+                block_file.seek(0)
+                block_file.truncate()
+                if json.dumps(blocked) == "":
+                    block_file.write("[]")
+                else:
+                    block_file.write(json.dumps(blocked))
+                await asyncio.sleep(5)
+                await success_message.delete()
+    
     async def purge_messages(self, ctx, amount):
         message = await ctx.send("-# <a:mew_throbber:1353825035273371729> **Purging " + str(amount) + " Messages...**")
         purged = 0
@@ -105,7 +134,14 @@ class Client(discord.Client):
                     ping_sillybot = not ping_sillybot
                     return
 
+        if message.content == "&ignore":
+            await self.toggle_blocked_status(message.channel, message.author.id)
+            return
+
         message.content = message.content.lower()
+        
+        if message.author.id in blocked:
+            return
 
         for token in responses:
             trigger_match = False
