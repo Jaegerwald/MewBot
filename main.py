@@ -10,10 +10,12 @@ load_dotenv()
 ADMINS = os.getenv("ADMINS").split(",")
 for i in range(0, len(ADMINS)):
     ADMINS[i] = int(ADMINS[i])
+BANNED_CHANNELS = os.getenv("BANNED_CHANNELS").split(",")
+for i in range(0, len(BANNED_CHANNELS)):
+    BANNED_CHANNELS[i] = int(BANNED_CHANNELS[i])
 
 responses = []
 blocked = []
-ping_sillybot = False
 
 with open("block.json", "r") as block_file:
     blocked = json.loads(block_file.read())
@@ -40,12 +42,14 @@ class Client(discord.Client):
         print("Logged on as", self.user)
 
     async def reload_data(self, ctx):
-        global responses
+        global responses, blocked
         
         message = await ctx.send("-# <a:mew_throbber:1353825035273371729> **Reloading...**")
 
         backup = responses.copy()
         try:
+            with open("block.json", "r") as block_file:
+                blocked = json.loads(block_file.read())
             load_responses()
             await message.edit(content="<:mew_check:1353825037966377001> **Reload Succeeded**")
         except Exception as e:
@@ -130,9 +134,6 @@ class Client(discord.Client):
 
                     await self.purge_messages(message.channel, message_count)
                     return
-                case "pingsb":
-                    ping_sillybot = not ping_sillybot
-                    return
 
         if message.content == "&ignore":
             await self.toggle_blocked_status(message.channel, message.author.id)
@@ -141,6 +142,8 @@ class Client(discord.Client):
         message.content = message.content.lower()
         
         if message.author.id in blocked:
+            return
+        if message.channel.id in BANNED_CHANNELS:
             return
 
         for token in responses:
@@ -151,7 +154,7 @@ class Client(discord.Client):
                 end_match = message.content.endswith(trigger_end)
 
             for trigger in token[1]:
-                trigger_match = token[0] and re.search("\\b" + trigger + "\\b", message.content) and end_match or token[0] == False and trigger in message.content and end_match
+                trigger_match = token[0] and re.search("\\b" + trigger + "\\b", message.content) and end_match or token[0] == False and re.search("\\b" + trigger, message.content) and end_match
                 if trigger_match:
 
                     result = util.generate_meow(token[3](), token[4]())
@@ -178,11 +181,7 @@ class Client(discord.Client):
                                 result = result.replace("m", "mr")
                                 result = result.replace("r", "r" * random.randrange(2,5))
 
-                    if ping_sillybot:
-                        await message.channel.send("<@1345216685270892585> " + result)
-                    else:
-                        await message.channel.send(result)
-                    break
+                    await message.channel.send(result)
 
             if trigger_match:
                 break
