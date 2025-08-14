@@ -154,7 +154,7 @@ class Client(discord.Client):
                 end_match = message.content.endswith(trigger_end)
 
             for trigger in token[1]:
-                trigger_match = token[0] and re.search("\\b" + trigger + "\\b", message.content) and end_match or token[0] == False and re.search("\\b" + trigger, message.content) and end_match
+                trigger_match = token[0] and re.search("\\b" + re.escape(trigger) + "\\b", message.content) and end_match or token[0] == False and re.search("\\b" + re.escape(trigger), message.content) and end_match
                 if trigger_match:
 
                     result = util.generate_meow(token[3](), token[4]())
